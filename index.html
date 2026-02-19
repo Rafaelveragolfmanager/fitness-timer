@@ -698,8 +698,46 @@ async function requestWakeLock() {
   } catch {}
 }
 document.addEventListener('visibilitychange', () => {
-  if (running && document.visibilityState === 'visible') requestWakeLock();
+  if (document.visibilityState === 'visible') {
+    if (running) requestWakeLock();
+    // Catch up after being in background
+    resumeFromBackground();
+  } else if (document.visibilityState === 'hidden' && running) {
+    // Save state when going to background
+    saveState();
+  }
 });
+
+function resumeFromBackground() {
+  const state = loadState();
+  if (!state || !state.running || !running) return;
+
+  const elapsed = Math.floor((Date.now() - state.savedAt) / 1000);
+  if (elapsed < 2) return; // Only catch up if we were actually suspended
+
+  let shouldFire = [];
+  data.alarms.forEach((a, i) => {
+    if (state.countdowns[i] !== undefined) {
+      const cycle = a.interval * 60;
+      let remaining = state.countdowns[i] - elapsed;
+      // Check how many alarms we missed
+      if (remaining <= 0) {
+        shouldFire.push(i);
+        remaining = remaining % cycle;
+        if (remaining <= 0) remaining += cycle;
+      }
+      countdowns[i] = remaining;
+    }
+  });
+
+  saveState();
+  updateCountdowns();
+
+  // Fire the most recent missed alarm
+  if (shouldFire.length > 0 && !exerciseInProgress) {
+    fireAlarm(shouldFire[0]);
+  }
+}
 
 document.getElementById('newActivityInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') addActivity();
