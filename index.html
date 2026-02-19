@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Fitness Timer">
+<meta name="theme-color" content="#1A1A2E">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Fitness Timer</title>
+<style>
+:root {
+  --bg: #1A1A2E;
+  --surface: #16213E;
+  --card: #0F3460;
+  --accent: #E94560;
+  --accent-hover: #FF6B81;
+  --text: #EAEAEA;
+  --text-dim: #8892A0;
+  --success: #2ECC71;
+  --warning: #F39C12;
+  --border: #233554;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+body {
+  font-family: -apple-system, 'Helvetica Neue', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+.header {
+  padding: 20px 24px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+.header h1 { font-size: 24px; font-weight: 700; }
+.header .status { font-size: 13px; color: var(--text-dim); margin-top: 2px; }
+.header .status.active { color: var(--success); }
+.header .status.paused { color: var(--warning); }
+.activities-link {
+  font-size: 13px; color: var(--text-dim); cursor: pointer;
+  background: none; border: none; padding: 4px 0;
+}
+.activities-link:active { color: var(--accent); }
+
+.separator { height: 1px; background: var(--border); margin: 0 24px; }
+
+.alarm-list {
+  flex: 1; overflow-y: auto; padding: 16px 24px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.empty-state {
+  text-align: center; color: var(--text-dim); padding: 60px 0;
+  font-size: 15px; line-height: 1.6;
+}
+
+.alarm-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.alarm-info h3 { font-size: 16px; font-weight: 600; }
+.alarm-info p { font-size: 13px; color: var(--text-dim); margin-top: 3px; }
+
+.alarm-right { text-align: right; flex-shrink: 0; margin-left: 12px; }
+.alarm-countdown { font-size: 22px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+.alarm-actions { margin-top: 6px; display: flex; gap: 14px; justify-content: flex-end; }
+.alarm-actions button {
+  background: none; border: none; font-size: 13px;
+  color: var(--text-dim); cursor: pointer; padding: 2px;
+}
+.alarm-actions .edit-btn:active { color: var(--warning); }
+.alarm-actions .del-btn:active { color: var(--accent); }
+
+.bottom-bar {
+  padding: 16px 24px 20px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.btn {
+  border: none; cursor: pointer; font-weight: 700;
+  font-size: 14px; padding: 12px 24px;
+  color: white; font-family: inherit;
+}
+.btn-accent { background: var(--accent); }
+.btn-accent:active { background: var(--accent-hover); }
+.btn-success { background: var(--success); }
+.btn-success:active { background: #27AE60; }
+.btn-warning { background: var(--warning); }
+.btn-warning:active { background: #E67E22; }
+
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+  display: flex; align-items: flex-end; justify-content: center;
+  z-index: 100; opacity: 0; pointer-events: none;
+  transition: opacity 0.2s;
+}
+.modal-overlay.open { opacity: 1; pointer-events: auto; }
+
+.modal {
+  background: var(--bg); width: 100%; max-width: 500px;
+  max-height: 90vh; overflow-y: auto;
+  padding: 24px; padding-bottom: calc(24px + env(safe-area-inset-bottom));
+  transform: translateY(100%); transition: transform 0.3s ease;
+  border-top: 1px solid var(--border);
+}
+.modal-overlay.open .modal { transform: translateY(0); }
+.modal h2 { font-size: 18px; margin-bottom: 20px; }
+
+.form-group { margin-bottom: 16px; }
+.form-group label { display: block; font-size: 13px; color: var(--text-dim); margin-bottom: 6px; }
+.form-group select,
+.form-group input {
+  width: 100%; padding: 12px; font-size: 16px;
+  background: var(--surface); color: var(--text); border: 1px solid var(--border);
+  font-family: inherit; -webkit-appearance: none; appearance: none;
+}
+.form-group select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238892A0' fill='none' stroke-width='2'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 36px; }
+.form-group input[type="number"] { width: 120px; }
+.form-group input:focus, .form-group select:focus { outline: none; border-color: var(--accent); }
+
+.modal-buttons { display: flex; gap: 10px; margin-top: 20px; }
+.modal-buttons .btn { flex: 1; }
+.btn-surface { background: var(--surface); color: var(--text); }
+.btn-surface:active { background: var(--card); }
+
+.activity-row {
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--surface); border: 1px solid var(--border);
+  padding: 12px 14px; margin-bottom: 6px;
+}
+.activity-row span { font-size: 15px; }
+.activity-row .row-actions { display: flex; gap: 12px; }
+.activity-row button {
+  background: none; border: none; color: var(--text-dim);
+  font-size: 13px; cursor: pointer; padding: 2px;
+}
+
+.add-row { display: flex; gap: 8px; margin-top: 12px; }
+.add-row input { flex: 1; padding: 10px; font-size: 15px; background: var(--surface); color: var(--text); border: 1px solid var(--border); font-family: inherit; }
+.add-row input:focus { outline: none; border-color: var(--accent); }
+.add-row .btn { padding: 10px 16px; font-size: 13px; }
+
+/* Exercise overlay — fullscreen coaching */
+.exercise-overlay {
+  position: fixed; inset: 0; background: var(--bg);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  z-index: 200; opacity: 0; pointer-events: none; transition: opacity 0.3s;
+}
+.exercise-overlay.open { opacity: 1; pointer-events: auto; }
+.exercise-title { color: var(--accent); font-size: 26px; font-weight: 700; margin-bottom: 8px; }
+.exercise-name { font-size: 20px; margin-bottom: 24px; color: var(--text-dim); }
+.exercise-counter { font-size: 80px; font-weight: 700; color: var(--text); margin-bottom: 16px; }
+.exercise-status { font-size: 18px; color: var(--text-dim); margin-bottom: 32px; min-height: 28px; }
+.exercise-overlay .btn { min-width: 160px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>Fitness Timer</h1>
+    <div class="status" id="statusLabel">Detenido</div>
+  </div>
+  <div class="header-right">
+    <button class="activities-link" onclick="openActivities()">Actividades</button>
+  </div>
+</div>
+
+<div class="separator"></div>
+
+<div class="alarm-list" id="alarmList">
+  <div class="empty-state">Sin alarmas<br>Presiona + para agregar una</div>
+</div>
+
+<div class="separator"></div>
+
+<div class="bottom-bar">
+  <button class="btn btn-accent" onclick="openAlarmDialog()">+ Agregar</button>
+  <button class="btn btn-success" id="toggleBtn" onclick="toggle()">Iniciar</button>
+</div>
+
+<!-- Alarm Dialog -->
+<div class="modal-overlay" id="alarmModal">
+  <div class="modal">
+    <h2 id="alarmModalTitle">Nueva alarma</h2>
+    <div class="form-group">
+      <label>Actividad</label>
+      <select id="alarmExercise"></select>
+    </div>
+    <div class="form-group">
+      <label>Intervalo (minutos)</label>
+      <input type="number" id="alarmInterval" value="30" min="1" max="180">
+    </div>
+    <div class="form-group">
+      <label>Repeticiones</label>
+      <input type="number" id="alarmReps" value="10" min="1" max="200">
+    </div>
+    <div class="modal-buttons">
+      <button class="btn btn-accent" id="alarmSaveBtn" onclick="saveAlarm()">Agregar</button>
+      <button class="btn btn-surface" onclick="closeModal('alarmModal')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Activities Dialog -->
+<div class="modal-overlay" id="activitiesModal">
+  <div class="modal">
+    <h2>Mis actividades</h2>
+    <div id="activitiesList"></div>
+    <div class="add-row">
+      <input type="text" id="newActivityInput" placeholder="Nueva actividad...">
+      <button class="btn btn-accent" onclick="addActivity()">+</button>
+    </div>
+    <div class="modal-buttons" style="margin-top: 20px;">
+      <button class="btn btn-success" onclick="saveActivities()">Guardar</button>
+      <button class="btn btn-surface" onclick="closeModal('activitiesModal')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Activity Name -->
+<div class="modal-overlay" id="editActivityModal">
+  <div class="modal">
+    <h2>Editar actividad</h2>
+    <div class="form-group">
+      <label>Nombre</label>
+      <input type="text" id="editActivityName">
+    </div>
+    <div class="modal-buttons">
+      <button class="btn btn-success" onclick="saveEditActivity()">Guardar</button>
+      <button class="btn btn-surface" onclick="closeModal('editActivityModal')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Exercise Overlay (coaching screen) -->
+<div class="exercise-overlay" id="exerciseOverlay">
+  <div class="exercise-title">A ejercitarse!</div>
+  <div class="exercise-name" id="exName"></div>
+  <div class="exercise-counter" id="exCounter"></div>
+  <div class="exercise-status" id="exStatus"></div>
+  <button class="btn btn-accent" id="exBtn" onclick="skipExercise()">Saltar</button>
+</div>
+
+<script>
+const STORAGE_KEY = 'fitness_timer_data';
+const DEFAULT_ACTIVITIES = ['Flexiones','Sentadillas','Plancha','Burpees','Jumping Jacks','Abdominales'];
+
+let data = loadData();
+let running = false;
+let countdowns = {};
+let tickInterval = null;
+let editingAlarmIdx = null;
+let editingActivityIdx = null;
+let tempActivities = [];
+let exerciseInProgress = false;
+
+// — TTS —
+
+function speak(text) {
+  return new Promise(resolve => {
+    if (!('speechSynthesis' in window)) { resolve(); return; }
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'es-ES';
+    u.rate = 1.05;
+    u.pitch = 1.0;
+    u.onend = resolve;
+    u.onerror = resolve;
+    window.speechSynthesis.speak(u);
+  });
+}
+
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// — Persistence —
+
+function loadData() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return { activities: [...DEFAULT_ACTIVITIES], alarms: [] };
+}
+
+function saveData() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+// — Render (no-flicker: only update countdown text nodes) —
+
+let renderedCardCount = 0;
+
+function renderFull() {
+  const list = document.getElementById('alarmList');
+  if (!data.alarms.length) {
+    list.innerHTML = '<div class="empty-state">Sin alarmas<br>Presiona + para agregar una</div>';
+    renderedCardCount = 0;
+    return;
+  }
+  list.innerHTML = data.alarms.map((a, i) => {
+    return `<div class="alarm-card" data-idx="${i}">
+      <div class="alarm-info">
+        <h3>${esc(a.exercise)}</h3>
+        <p>${a.reps} reps · cada ${a.interval} min</p>
+      </div>
+      <div class="alarm-right">
+        <div class="alarm-countdown" data-cd="${i}"></div>
+        <div class="alarm-actions">
+          <button class="edit-btn" onclick="openAlarmDialog(${i})">editar</button>
+          <button class="del-btn" onclick="deleteAlarm(${i})">x</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+  renderedCardCount = data.alarms.length;
+  updateCountdowns();
+}
+
+function updateCountdowns() {
+  data.alarms.forEach((a, i) => {
+    const el = document.querySelector(`[data-cd="${i}"]`);
+    if (!el) return;
+    if (running && countdowns[i] !== undefined) {
+      const m = Math.floor(countdowns[i] / 60);
+      const s = countdowns[i] % 60;
+      el.textContent = `${m}:${String(s).padStart(2,'0')}`;
+    } else {
+      el.textContent = '';
+    }
+  });
+}
+
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+// — Alarm CRUD —
+
+function openAlarmDialog(idx) {
+  editingAlarmIdx = idx !== undefined ? idx : null;
+  const title = document.getElementById('alarmModalTitle');
+  const btn = document.getElementById('alarmSaveBtn');
+  const sel = document.getElementById('alarmExercise');
+
+  sel.innerHTML = data.activities.map(a => `<option value="${esc(a)}">${esc(a)}</option>`).join('');
+
+  if (editingAlarmIdx !== null) {
+    const alarm = data.alarms[idx];
+    title.textContent = 'Editar alarma';
+    btn.textContent = 'Guardar';
+    sel.value = alarm.exercise;
+    document.getElementById('alarmInterval').value = alarm.interval;
+    document.getElementById('alarmReps').value = alarm.reps;
+  } else {
+    title.textContent = 'Nueva alarma';
+    btn.textContent = 'Agregar';
+    document.getElementById('alarmInterval').value = 30;
+    document.getElementById('alarmReps').value = 10;
+  }
+  openModal('alarmModal');
+}
+
+function saveAlarm() {
+  const exercise = document.getElementById('alarmExercise').value;
+  const interval = parseInt(document.getElementById('alarmInterval').value);
+  const reps = parseInt(document.getElementById('alarmReps').value);
+  if (!exercise || isNaN(interval) || isNaN(reps) || interval < 1 || reps < 1) return;
+
+  const alarm = { exercise, interval, reps };
+  if (editingAlarmIdx !== null) {
+    data.alarms[editingAlarmIdx] = alarm;
+    if (running) countdowns[editingAlarmIdx] = interval * 60;
+  } else {
+    data.alarms.push(alarm);
+    if (running) countdowns[data.alarms.length - 1] = interval * 60;
+  }
+  saveData();
+  renderFull();
+  closeModal('alarmModal');
+}
+
+function deleteAlarm(idx) {
+  data.alarms.splice(idx, 1);
+  const nc = {};
+  Object.keys(countdowns).forEach(k => {
+    const ki = parseInt(k);
+    if (ki < idx) nc[ki] = countdowns[ki];
+    else if (ki > idx) nc[ki - 1] = countdowns[ki];
+  });
+  countdowns = nc;
+  saveData();
+  renderFull();
+}
+
+// — Activities —
+
+function openActivities() {
+  tempActivities = [...data.activities];
+  renderActivities();
+  openModal('activitiesModal');
+  document.getElementById('newActivityInput').value = '';
+}
+
+function renderActivities() {
+  const list = document.getElementById('activitiesList');
+  if (!tempActivities.length) {
+    list.innerHTML = '<div style="color:var(--text-dim);padding:16px 0;text-align:center">Sin actividades</div>';
+    return;
+  }
+  list.innerHTML = tempActivities.map((a, i) => `
+    <div class="activity-row">
+      <span>${esc(a)}</span>
+      <div class="row-actions">
+        <button onclick="editActivity(${i})">editar</button>
+        <button onclick="deleteActivity(${i})">x</button>
+      </div>
+    </div>`).join('');
+}
+
+function addActivity() {
+  const input = document.getElementById('newActivityInput');
+  const name = input.value.trim();
+  if (!name) return;
+  if (tempActivities.includes(name)) return;
+  tempActivities.push(name);
+  input.value = '';
+  renderActivities();
+}
+
+function editActivity(idx) {
+  editingActivityIdx = idx;
+  document.getElementById('editActivityName').value = tempActivities[idx];
+  openModal('editActivityModal');
+}
+
+function saveEditActivity() {
+  const name = document.getElementById('editActivityName').value.trim();
+  if (!name) return;
+  if (tempActivities.includes(name) && tempActivities[editingActivityIdx] !== name) return;
+  tempActivities[editingActivityIdx] = name;
+  renderActivities();
+  closeModal('editActivityModal');
+}
+
+function deleteActivity(idx) {
+  tempActivities.splice(idx, 1);
+  renderActivities();
+}
+
+function saveActivities() {
+  data.activities = tempActivities;
+  saveData();
+  closeModal('activitiesModal');
+}
+
+// — Timer —
+
+function toggle() {
+  if (running) stopTimer(); else startTimer();
+}
+
+function startTimer() {
+  if (!data.alarms.length) return;
+  running = true;
+  document.getElementById('toggleBtn').textContent = 'Pausar';
+  document.getElementById('toggleBtn').className = 'btn btn-warning';
+  document.getElementById('statusLabel').textContent = 'Activo';
+  document.getElementById('statusLabel').className = 'status active';
+
+  data.alarms.forEach((a, i) => {
+    if (countdowns[i] === undefined) countdowns[i] = a.interval * 60;
+  });
+  tickInterval = setInterval(tick, 1000);
+  renderFull();
+}
+
+function stopTimer() {
+  running = false;
+  document.getElementById('toggleBtn').textContent = 'Iniciar';
+  document.getElementById('toggleBtn').className = 'btn btn-success';
+  document.getElementById('statusLabel').textContent = 'Pausado';
+  document.getElementById('statusLabel').className = 'status paused';
+  clearInterval(tickInterval);
+  tickInterval = null;
+  renderFull();
+}
+
+function tick() {
+  let fired = [];
+  Object.keys(countdowns).forEach(k => {
+    const i = parseInt(k);
+    if (i >= data.alarms.length) return;
+    countdowns[i]--;
+    if (countdowns[i] <= 0) {
+      fired.push(i);
+      countdowns[i] = data.alarms[i].interval * 60;
+    }
+  });
+  updateCountdowns();
+  if (fired.length > 0 && !exerciseInProgress) {
+    fireAlarm(fired[0]);
+  }
+}
+
+// — Exercise coaching with voice —
+
+let skipRequested = false;
+
+function findNextAlarm(currentIdx) {
+  // Find the alarm that will fire soonest (lowest countdown)
+  let nextIdx = -1;
+  let minTime = Infinity;
+  Object.keys(countdowns).forEach(k => {
+    const i = parseInt(k);
+    if (i === currentIdx || i >= data.alarms.length) return;
+    if (countdowns[i] < minTime) {
+      minTime = countdowns[i];
+      nextIdx = i;
+    }
+  });
+  return nextIdx;
+}
+
+async function fireAlarm(alarmIdx) {
+  const alarm = data.alarms[alarmIdx];
+  if (!alarm) return;
+  exerciseInProgress = true;
+  skipRequested = false;
+
+  const overlay = document.getElementById('exerciseOverlay');
+  const nameEl = document.getElementById('exName');
+  const counterEl = document.getElementById('exCounter');
+  const statusEl = document.getElementById('exStatus');
+  const btnEl = document.getElementById('exBtn');
+
+  nameEl.textContent = `${alarm.reps} ${alarm.exercise}`;
+  counterEl.textContent = '';
+  statusEl.textContent = '';
+  btnEl.textContent = 'Saltar';
+  btnEl.onclick = () => { skipRequested = true; };
+  overlay.classList.add('open');
+
+  if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 200]);
+
+  // Motivational intro
+  const intros = [
+    `Vamos! Es hora de hacer ${alarm.reps} ${alarm.exercise}!`,
+    `Arriba! Toca hacer ${alarm.reps} ${alarm.exercise}! Tu puedes!`,
+    `Venga! ${alarm.reps} ${alarm.exercise}! Dale con todo!`,
+  ];
+  statusEl.textContent = 'Preparate...';
+  await speak(intros[Math.floor(Math.random() * intros.length)]);
+
+  if (skipRequested) { finishExercise(alarmIdx); return; }
+
+  // Count reps
+  await delay(500);
+  statusEl.textContent = 'Contando...';
+
+  for (let rep = 1; rep <= alarm.reps; rep++) {
+    if (skipRequested) break;
+    counterEl.textContent = rep;
+
+    if (alarm.reps <= 20) {
+      // Count each rep out loud
+      await speak(String(rep));
+      if (rep < alarm.reps && !skipRequested) {
+        await delay(300);
+      }
+    } else {
+      // For many reps, count every 5
+      if (rep === 1 || rep % 5 === 0 || rep === alarm.reps) {
+        await speak(String(rep));
+      } else {
+        await delay(600);
+      }
+    }
+  }
+
+  if (!skipRequested) {
+    // Congratulations
+    counterEl.textContent = alarm.reps;
+    const congrats = [
+      'Enhorabuena! Lo lograste!',
+      'Excelente trabajo! Eres una maquina!',
+      'Genial! Muy bien hecho!',
+      'Fantastico! Sigue asi campeon!',
+    ];
+    statusEl.textContent = 'Completado!';
+    await speak(congrats[Math.floor(Math.random() * congrats.length)]);
+
+    // Announce next alarm
+    const nextIdx = findNextAlarm(alarmIdx);
+    if (nextIdx >= 0 && !skipRequested) {
+      const next = data.alarms[nextIdx];
+      const mins = Math.ceil(countdowns[nextIdx] / 60);
+      const nextMsg = `Tu siguiente actividad es ${next.reps} ${next.exercise} en ${mins} ${mins === 1 ? 'minuto' : 'minutos'}.`;
+      statusEl.textContent = `Siguiente: ${next.exercise} en ${mins} min`;
+      await speak(nextMsg);
+    }
+  }
+
+  finishExercise(alarmIdx);
+}
+
+function finishExercise(alarmIdx) {
+  exerciseInProgress = false;
+  skipRequested = false;
+  window.speechSynthesis.cancel();
+  document.getElementById('exerciseOverlay').classList.remove('open');
+}
+
+function skipExercise() {
+  skipRequested = true;
+}
+
+// — Modal helpers —
+
+function openModal(id) {
+  document.getElementById(id).classList.add('open');
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+
+// — Init —
+
+if ('Notification' in window && Notification.permission === 'default') {
+  Notification.requestPermission();
+}
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js');
+}
+
+async function requestWakeLock() {
+  try {
+    if ('wakeLock' in navigator) {
+      await navigator.wakeLock.request('screen');
+    }
+  } catch {}
+}
+document.addEventListener('visibilitychange', () => {
+  if (running && document.visibilityState === 'visible') requestWakeLock();
+});
+
+document.getElementById('newActivityInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') addActivity();
+});
+
+renderFull();
+</script>
+</body>
+</html>
