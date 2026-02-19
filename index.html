@@ -294,6 +294,8 @@ function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 // — Persistence —
 
+const STATE_KEY = 'fitness_timer_state';
+
 function loadData() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -304,6 +306,27 @@ function loadData() {
 
 function saveData() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+function saveState() {
+  const state = {
+    running,
+    countdowns: { ...countdowns },
+    savedAt: Date.now()
+  };
+  localStorage.setItem(STATE_KEY, JSON.stringify(state));
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STATE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch { return null; }
+}
+
+function clearState() {
+  localStorage.removeItem(STATE_KEY);
 }
 
 // — Render (no-flicker: only update countdown text nodes) —
@@ -481,29 +504,39 @@ function toggle() {
   if (running) stopTimer(); else startTimer();
 }
 
-function startTimer() {
-  if (!data.alarms.length) return;
-  running = true;
+function setUIRunning() {
   document.getElementById('toggleBtn').textContent = 'Pausar';
   document.getElementById('toggleBtn').className = 'btn btn-warning';
   document.getElementById('statusLabel').textContent = 'Activo';
   document.getElementById('statusLabel').className = 'status active';
+}
+
+function setUIStopped() {
+  document.getElementById('toggleBtn').textContent = 'Iniciar';
+  document.getElementById('toggleBtn').className = 'btn btn-success';
+  document.getElementById('statusLabel').textContent = 'Pausado';
+  document.getElementById('statusLabel').className = 'status paused';
+}
+
+function startTimer() {
+  if (!data.alarms.length) return;
+  running = true;
+  setUIRunning();
 
   data.alarms.forEach((a, i) => {
     if (countdowns[i] === undefined) countdowns[i] = a.interval * 60;
   });
+  saveState();
   tickInterval = setInterval(tick, 1000);
   renderFull();
 }
 
 function stopTimer() {
   running = false;
-  document.getElementById('toggleBtn').textContent = 'Iniciar';
-  document.getElementById('toggleBtn').className = 'btn btn-success';
-  document.getElementById('statusLabel').textContent = 'Pausado';
-  document.getElementById('statusLabel').className = 'status paused';
+  setUIStopped();
   clearInterval(tickInterval);
   tickInterval = null;
+  clearState();
   renderFull();
 }
 
@@ -518,6 +551,7 @@ function tick() {
       countdowns[i] = data.alarms[i].interval * 60;
     }
   });
+  saveState();
   updateCountdowns();
   if (fired.length > 0 && !exerciseInProgress) {
     fireAlarm(fired[0]);
@@ -670,6 +704,31 @@ document.addEventListener('visibilitychange', () => {
 document.getElementById('newActivityInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') addActivity();
 });
+
+// — Restore timer state on load —
+const savedState = loadState();
+if (savedState && savedState.running && data.alarms.length) {
+  // Calculate elapsed seconds since the app was closed
+  const elapsed = Math.floor((Date.now() - savedState.savedAt) / 1000);
+
+  // Restore countdowns, subtracting elapsed time and wrapping around
+  data.alarms.forEach((a, i) => {
+    if (savedState.countdowns[i] !== undefined) {
+      let remaining = savedState.countdowns[i] - elapsed;
+      const cycle = a.interval * 60;
+      // Wrap around if multiple cycles passed
+      remaining = remaining % cycle;
+      if (remaining <= 0) remaining += cycle;
+      countdowns[i] = remaining;
+    } else {
+      countdowns[i] = a.interval * 60;
+    }
+  });
+
+  running = true;
+  setUIRunning();
+  tickInterval = setInterval(tick, 1000);
+}
 
 renderFull();
 </script>
