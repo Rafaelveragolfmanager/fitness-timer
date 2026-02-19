@@ -1,4 +1,4 @@
-const CACHE = 'fitness-timer-v2';
+const CACHE = 'fitness-timer-v1.4';
 
 self.addEventListener('install', e => {
   e.waitUntil(
