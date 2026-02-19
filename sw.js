@@ -1,8 +1,19 @@
-const CACHE = 'fitness-timer-v1';
-const ASSETS = ['/', '/index.html', '/manifest.json', '/icon-192.png', '/icon-512.png'];
+const CACHE = 'fitness-timer-v2';
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
+  e.waitUntil(
+    caches.open(CACHE).then(c => {
+      // Cache relative to where the SW is registered
+      const base = self.registration.scope;
+      return c.addAll([
+        base,
+        base + 'index.html',
+        base + 'manifest.json',
+        base + 'icon-192.png',
+        base + 'icon-512.png'
+      ]);
+    })
+  );
   self.skipWaiting();
 });
 
